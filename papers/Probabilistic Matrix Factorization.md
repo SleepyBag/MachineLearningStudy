@@ -1,5 +1,4 @@
 ﻿# Probabilistic Matrix Factorization
-
 ---
 
 ## PMF方法
@@ -19,9 +18,7 @@ PMF实质上是SVD方法的另一种阐述方式。
 
 本文的主要创新点。新增了一个矩阵W来表示“看过某电影的用户的特征”（不考虑评分值）来提升模型对不活跃用户的推荐性能。
 
-$$
-U_i=Y_i+(\sum_kI_{ik}W_k)/(\sum_kI_{ik})
-$$
+<img src="http://chart.googleapis.com/chart?cht=tx&chl= U_i=Y_i+(\sum_kI_{ik}W_k)/(\sum_kI_{ik}) " style="border:none;">
 
 还没有开始学LaTex，公式有点难看。I矩阵代表用户看过一个电影与否，看过为1，没看过为0。加号后面的项为“看过某电影的用户群体的兴趣状态”，加号前面的项为根据评分求得的兴趣状态。这样设置可以让看过相同电影（不一定评分相同）的用户拥有近似的状态。
 
