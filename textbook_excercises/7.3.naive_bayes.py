@@ -1,5 +1,6 @@
 from sklearn import naive_bayes
 import pandas as pd
+import math
 
 # import the data
 data_frame = pd.read_csv('watermelon3_0_Ch.csv', encoding='gb2312')
@@ -7,57 +8,57 @@ label_column = '好瓜'
 continuous_columns = ['密度', '含糖率']
 discrete_columns = [column for column in data_frame.columns if column
                     not in continuous_columns and column != label_column]
-continuous_feature = data_frame[continuous_columns]
-discrete_feature = data_frame[discrete_columns]
-discrete_feature = pd.get_dummies(discrete_feature)
-label = data_frame[label_column]
+all_continuous_feature = data_frame[continuous_columns]
+all_discrete_feature = data_frame[discrete_columns]
+all_label = data_frame[label_column]
 
-indices = []
+discrete_feature = [all_discrete_feature[:8], all_discrete_feature[8:-1]]
+continuous_feature = [all_continuous_feature[:8], all_continuous_feature[8:-1]]
 
-# for discrete_column in discrete_columns:
-#     column_series = discrete_feature[discrete_column]
-#     index = {}
-#     index_cnt = 0
-#     for data in column_series.iteritems():
-#         data = data[1]
-#         if data not in index.keys():
-#             index[data] = index_cnt
-#             index_cnt += 1
-#     discrete_feature[discrete_column] = column_series.map(index)
-#     indices.append(index)
+p_discrete_condition = [{}, {}]
+ni = {}
 
-continuous_feature = continuous_feature.as_matrix()
-# discrete_feature = discrete_feature.as_matrix()
+for column in all_discrete_feature:
+    ni[column] = 0
+    dc = set()
+    for data in all_discrete_feature[column]:
+        if data not in dc:
+            dc.add(data)
+            ni[column] += 1
 
-discrete_clfs = []
-for column in discrete_columns:
-    discrete_clf = naive_bayes.MultinomialNB(alpha=1.)
-    discrete_clfs.append(discrete_clf)
-    one_hoted_columns = [c for c in discrete_feature.columns
-                         if c.startswith(column)]
-    cur_feature = discrete_feature[one_hoted_columns]
-    discrete_clf.fit(cur_feature[:17], label[:17])
+for c, pxc in zip(discrete_feature, p_discrete_condition):
+    for column in c:
+        new_data = set()
+        for data in c[column]:
+            if data in pxc:
+                pxc[data] += 1
+            else:
+                pxc[data] = 1
+                new_data.add(data)
+        for key in new_data:
+            pxc[key] += 1
+            pxc[key] /= len(c) + ni[column]
 
-continuous_clf = naive_bayes.GaussianNB()
-continuous_clf.fit(continuous_feature[:17], label[:17])
+p_prior = [len(c) / 17 for c in discrete_feature]
+mu = [c.mean().tolist() for c in continuous_feature]
+sigma = [c.std().tolist() for c in continuous_feature]
 
-# p_label_prior = continuous_clf.class_prior_
-p_feature_priors = []
-for i, column in enumerate(discrete_columns):
-    p_feature_priors.append((discrete_clfs[i].feature_count_ / 17).tolist())
-p_continuous_condition = continuous_clf.predict_proba(continuous_feature[-1:])
-p_discrete_condition = []
 
-for i, column in enumerate(discrete_columns):
-    one_hoted_columns = [c for c in discrete_feature.columns
-                         if c.startswith(column)]
-    cur_feature = discrete_feature[one_hoted_columns]
-    p_discrete_condition.append(
-        discrete_clfs[i].predict_proba(cur_feature[-1:]).tolist())
+def p_continuous_condition(xi, c, i):
+    cur_mu = mu[c][i]
+    cur_sigma = sigma[c][i]
+    return 1 / math.sqrt(2 * math.pi) / cur_sigma * \
+        math.exp(-(xi - cur_mu) ** 2 / 2 / cur_sigma ** 2)
 
-for cur_label in range(2):
-# p_post = p_label_prior * p_continuous_condition * p_discrete_condition
-p_post = p_post.tolist()
 
-prediction = p_post[0].index(max(p_post[0]))
-prediction = discrete_clf.classes_[prediction]
+test_discrete_feature = all_discrete_feature[-1:]
+test_continuous_feature = all_continuous_feature[-1:]
+
+for c in range(2):
+    p = p_prior[c]
+    for column in test_discrete_feature:
+        p *= p_discrete_condition[c][test_discrete_feature[column].iloc[0]]
+    for i, column in enumerate(test_continuous_feature):
+        p *= p_continuous_condition(
+            test_continuous_feature[column].iloc[0], c, i)
+    print(p)
