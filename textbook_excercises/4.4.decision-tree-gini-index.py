@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from math import log
-
 # 定义数据
 data_frame = pd.read_csv('西瓜2.0.txt', encoding='gb2312')
 train_rows = [0, 1, 2, 5, 6, 9, 13, 14, 15, 16]
@@ -48,7 +47,7 @@ class Node:
     def get_label(self, data_piece):
         # 取得一条数据的标记
         # 如果这个结点没有分支,则直接返回结点的标记
-        if self.split_column == None:
+        if self.split_column is None:
             return self.label
         else:
             split_value = data_piece[self.split_column]
@@ -138,14 +137,16 @@ def get_gini(splited_data):
     return gini
 
 
-def build_decision_node(node, data_frame, discrete_columns, continuous_columns, label_column):
+def build_decision_node(node, data_frame, discrete_columns,
+                        continuous_columns, label_column):
     # print(data_frame[discrete_columns + continuous_columns + [label_column]])
     # 构造决策树
 
     # 单独取出标记列
     label_series = list(data_frame[label_column].iteritems())
     # 如果所有样本标记相同,那么直接将该结点定义为叶节点
-    if False not in [label_series[0][1] == label_series[i][1] for i in range(len(label_series))]:
+    if False not in [label_series[0][1] == label_series[i][1]
+                     for i in range(len(label_series))]:
         # node.label = label_series[0][1]
         return node
 
@@ -199,7 +200,8 @@ def build_decision_node(node, data_frame, discrete_columns, continuous_columns, 
     return node
 
 
-def build_decision_tree(data_frame, discrete_columns, continuous_columns, label_column):
+def build_decision_tree(data_frame, discrete_columns,
+                        continuous_columns, label_column):
     root = Node(data_frame, label_column)
     build_decision_node(root, data_frame, discrete_columns,
                         continuous_columns, label_column)
@@ -208,7 +210,8 @@ def build_decision_tree(data_frame, discrete_columns, continuous_columns, label_
 
 # 构造决策树
 root = build_decision_tree(train_data_frame, discrete_columns=discrete_columns,
-                           continuous_columns=continuous_columns, label_column=label_column)
+                           continuous_columns=continuous_columns,
+                           label_column=label_column)
 
 
 def dfs(node):
