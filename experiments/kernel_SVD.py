@@ -24,7 +24,7 @@ cross_validate(algo, data, measures=['RMSE', 'MAE'], cv=5, verbose=True)
 class kernelSVD(AlgoBase):
 
     def __init__(self, n_factors=100, n_epochs=20, biased=True, init_mean=0,
-                 init_std_dev=.1, lr_all=.005,
+                 init_std_dev=.1, lr_all=.025,
                  reg_all=.02, lr_bu=None, lr_bi=None, lr_pu=None, lr_qi=None,
                  reg_bu=None, reg_bi=None, reg_pu=None, reg_qi=None,
                  random_state=None, verbose=False):
