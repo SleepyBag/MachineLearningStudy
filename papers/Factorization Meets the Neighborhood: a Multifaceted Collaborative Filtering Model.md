@@ -31,14 +31,14 @@
 ### 我的疑问
 > 这个模型似乎和临近模型区别不大.
 > 临近模型的优化目标为
-<img src="http://chart.googleapis.com/chart?cht=tx&chl=\mu%2Bb_u%2Bb_i%2B|R^k(i;u)|^{-1/2}\sum_{j\in R^k(i;u)}(r_{uj}-b_{uj})w_{ij}%2B|N^k(i;u)|^{-1/2}\sum_{j\in N^k(i;u)}c_{ij}" style="border:none;">
+> <img src="http://chart.googleapis.com/chart?cht=tx&chl=\mu%2Bb_u%2Bb_i%2B|R^k(i;u)|^{-1/2}\sum_{j\in R^k(i;u)}(r_{uj}-b_{uj})w_{ij}%2B|N^k(i;u)|^{-1/2}\sum_{j\in N^k(i;u)}c_{ij}" style="border:none;">
 > 对称SVD的优化目标为
-<img src="http://chart.googleapis.com/chart?cht=tx&chl=b_{ui}%2Bq_i^T(|R(u)|^{-1/2}\sum_{j\in R(u)}(r_{uj}-b_{uj})x_j%2B|N(u)|^{-1/2}\sum_{j\in N(u)}y_j)" style="border:none;">
+> <img src="http://chart.googleapis.com/chart?cht=tx&chl=b_{ui}%2Bq_i^T(|R(u)|^{-1/2}\sum_{j\in R(u)}(r_{uj}-b_{uj})x_j%2B|N(u)|^{-1/2}\sum_{j\in N(u)}y_j)" style="border:none;">
 > 可以看到当临近模型的k取无穷大时,二者的求和范围是一样的.临近模型变成
-<img src="http://chart.googleapis.com/chart?cht=tx&chl=\mu%2Bb_u%2Bb_i%2B|R(u)|^{-1/2}\sum_{j\in R(u)}(r_{uj}-b_{uj})w_{ij}%2B|N(u)|^{-1/2}\sum_{j\in N(u)}c_{ij}" style="border:none;">
+> <img src="http://chart.googleapis.com/chart?cht=tx&chl=\mu%2Bb_u%2Bb_i%2B|R(u)|^{-1/2}\sum_{j\in R(u)}(r_{uj}-b_{uj})w_{ij}%2B|N(u)|^{-1/2}\sum_{j\in N(u)}c_{ij}" style="border:none;">
 > 而事实上无论对称SVD跑出什么结果,只要令临近模型中的参数
-<img src="http://chart.googleapis.com/chart?cht=tx&chl=w_{ij}=q_i^Tx_j" style="border:none;">
-<img src="http://chart.googleapis.com/chart?cht=tx&chl=c_{ij}=q_i^Ty_j" style="border:none;">
+> <img src="http://chart.googleapis.com/chart?cht=tx&chl=w_{ij}=q_i^Tx_j" style="border:none;">
+> <img src="http://chart.googleapis.com/chart?cht=tx&chl=c_{ij}=q_i^Ty_j" style="border:none;">
 > 那么后面两项就完全一样了,再调整一下前面的三个参数,临近模型就能跑出和对称SVD一样的结果.
 > 但是这个结论反过来是不成立的.因为对称SVD中q向量的长度,也就是潜在因素的数量,已经决定了其结果矩阵R的秩的上限.所以是不能通过赋值来使其等同于这里的临近模型的.
 > 如果上面的想法是正确的,那么其实对称SVD实际上是一个不存在的模型= =只是上面这个临近模型的特例.

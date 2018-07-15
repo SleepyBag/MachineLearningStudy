@@ -29,6 +29,6 @@
 <img src="http://chart.googleapis.com/chart?cht=tx&chl=\hat{r}_{ui}(t)=\mu%2Bb_i(t)%2Bb_u(t)%2Bq_i^T(p_u(t)%2B|R(u)|^{-\frac{1}{2}}\sum_{j\in R(u)}y_j)" style="border:none;">
 模型的形式和SVD++还是一样的,只是增加了时间参数.
 
-##　收获
+## 收获
 * 时间对于评分也是一个重要的因素.
 * 高次模型可以不直接用多项式拟合,而是用样条曲线代替.
