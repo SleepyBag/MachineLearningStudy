@@ -15,7 +15,6 @@ def p1(xhat, beta):
 
 
 def iterate(X, Y, beta):
-    import pdb
     # pdb.set_trace()
     grad = np.zeros(shape=beta.shape)
     grad2 = 0
@@ -43,6 +42,6 @@ Y = np.array([[1]] * 8 + [[0]] * 9)
 
 epoch = 50
 for i in range(epoch):
-    print('Epoch' ,i ,'started')
+    print('Epoch', i, 'started')
     grad, grad2, beta, loss = iterate(X, Y, beta)
-    print('loss =',loss)
+    print('loss =', loss)
