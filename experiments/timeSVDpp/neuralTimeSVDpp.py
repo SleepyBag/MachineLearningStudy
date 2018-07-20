@@ -83,6 +83,16 @@ class TimeSVDpp(gluon.nn.Block):
             self.p_short = self.params.get(
                 'p_short', shape=(user_cnt, day_cnt, factor_cnt))
 
+            # 设定MLP的学习参数W1,W2,V1,V2
+            self.W1 = self.params.get('W1', shape=(factor_cnt, 2 * factor_cnt))
+            self.bW1 = self.params.get('bW1', shape=(factor_cnt, 1))
+            self.W2 = self.params.get('W2', shape=(1, factor_cnt))
+            self.bW2 = self.params.get('bW2', shape=(1, 1))
+            self.V1 = self.params.get('V1', shape=(2, 3))
+            self.bV1 = self.params.get('bV1', shape=(2, 1))
+            self.V2 = self.params.get('V2', shape=(1, 2))
+            self.bV2 = self.params.get('bV2', shape=(1, 1))
+
     # 求某一个日期对某用户的平均评分日期的偏移
     def _get_dev(self, u, t):
         mean_day = user_meanday[u]
@@ -109,6 +119,15 @@ class TimeSVDpp(gluon.nn.Block):
         p_long = self.p_long.data()
         alpha_preference = self.alpha_preference.data()
         p_short = self.p_short.data()
+        # 取出MLP参数
+        W1 = self.W1.data()
+        bW1 = self.bW1.data()
+        W2 = self.W2.data()
+        bW2 = self.bW2.data()
+        V1 = self.V1.data()
+        bV1 = self.bV1.data()
+        V2 = self.V2.data()
+        bV2 = self.bV2.data()
 
         dev = self._get_dev(u, t)
 
@@ -127,9 +146,19 @@ class TimeSVDpp(gluon.nn.Block):
         sum_y = sum_y / math.sqrt(len(self.items_of_user[u]))
 
         # 预测评分
-        r_hat = self.mu + b_item + b_user + \
-            nd.dot(q[i].reshape((-1, 1)).T,
-                   p.reshape((-1, 1)) + sum_y.reshape((-1, 1)))
+        relu = gluon.nn.Activation('relu')
+        q = q[i].reshape((-1, 1))
+        p = p.reshape((-1, 1)) + sum_y.reshape((-1, 1))
+        qp = nd.concat(q, p, dim=0)
+        mW = nd.dot(W1, qp) + bW1
+        mW = relu(mW)
+        phi = (nd.dot(W2, mW) + bW2) + nd.dot(q.T, p)
+        preference = nd.concat(phi, b_item.reshape((1, 1)),
+                               b_user.reshape((1, 1)), dim=0)
+        mV = nd.dot(V1, preference) + bV1
+        mV = relu(mV)
+        r_hat = (nd.dot(V2, mV) + bV2) + preference.sum()
+
         return r_hat
 
     # 计算正则化项的值,也就是所有相关参数的平方和
@@ -148,8 +177,17 @@ class TimeSVDpp(gluon.nn.Block):
         p_long = self.p_long.data()
         alpha_preference = self.alpha_preference.data()
         p_short = self.p_short.data()
+        # 取出MLP参数
+        W1 = self.W1.data()
+        W2 = self.W2.data()
+        bW1 = self.bW1.data()
+        bW2 = self.bW2.data()
+        V1 = self.V1.data()
+        V2 = self.V2.data()
+        bV1 = self.bV1.data()
+        bV2 = self.bV2.data()
 
-        regularization = (q[i] ** 2)
+        regularization = (q[i] ** 2).sum()
         regularization = regularization + (y[i] ** 2).sum()
         regularization = regularization + b_item_long[i] ** 2
         regularization = regularization + \
@@ -158,8 +196,17 @@ class TimeSVDpp(gluon.nn.Block):
         regularization = regularization + alpha_bias[u] ** 2
         regularization = regularization + b_user_short[u][t] ** 2
         regularization = regularization + (p_long[u] ** 2).sum()
-        regularization = regularization + (alpha_preference[u] ** 2).sum()
+        regularization = regularization + \
+            (alpha_preference[u] ** 2).sum()
         regularization = regularization + (p_short[u] ** 2).sum()
+        regularization = regularization + (W1 ** 2).sum()
+        regularization = regularization + (W2 ** 2).sum()
+        regularization = regularization + (bW1 ** 2).sum()
+        regularization = regularization + (bW2 ** 2).sum()
+        regularization = regularization + (V1 ** 2).sum()
+        regularization = regularization + (V2 ** 2).sum()
+        regularization = regularization + (bV1 ** 2).sum()
+        regularization = regularization + (bV2 ** 2).sum()
         return regularization
 
 
@@ -188,17 +235,19 @@ for epoch in range(epoch_cnt):
             print('Epoch', epoch, 'training, ', trained_cnt / rating_cnt,
                   'trained. \tLoss =',
                   (total_loss / trained_cnt)[0].asscalar(), end='\r')
-    print('Epoch', epoch, 'finished, Loss =', total_loss / rating_cnt)
+    print('\nEpoch', epoch, 'finished, Loss =',
+          (total_loss / rating_cnt)[0].asscalar())
 
-test_total_loss = 0
-tested_cnt = 0
-for user in test_userItems.keys():
-    for item in test_userItems[user]:
-        r_hat = timeSVDpp(user, item[0], int(item[2]))
-        loss = (r_hat - item[1]) ** 2
-        test_total_loss += loss
-        tested_cnt += 1
-        print('Testing, tested percent:',
-              tested_cnt / test_rating_cnt, '. \tLoss =',
-              (test_total_loss / tested_cnt)[0].asscalar(), end='\r')
-print('Test finished, Loss =', test_total_loss / test_rating_cnt)
+    test_total_loss = 0
+    tested_cnt = 0
+    for user in test_userItems.keys():
+        for item in test_userItems[user]:
+            r_hat = timeSVDpp(user, item[0], int(item[2]))
+            loss = (r_hat - item[1]) ** 2
+            test_total_loss += loss
+            tested_cnt += 1
+            print('Epoch', epoch, 'testing, tested percent:',
+                  tested_cnt / test_rating_cnt, '. \tLoss =',
+                  (test_total_loss / tested_cnt)[0].asscalar(), end='\r')
+    print('\nTest finished, Loss =',
+          (test_total_loss / test_rating_cnt)[0].asscalar())
