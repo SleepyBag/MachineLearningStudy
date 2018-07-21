@@ -83,15 +83,20 @@ class TimeSVDpp(gluon.nn.Block):
             self.p_short = self.params.get(
                 'p_short', shape=(user_cnt, day_cnt, factor_cnt))
 
-            # 设定MLP的学习参数W1,W2,V1,V2
-            self.W1 = self.params.get('W1', shape=(factor_cnt, 2 * factor_cnt))
-            self.bW1 = self.params.get('bW1', shape=(factor_cnt, 1))
-            self.W2 = self.params.get('W2', shape=(1, factor_cnt))
-            self.bW2 = self.params.get('bW2', shape=(1, 1))
-            self.V1 = self.params.get('V1', shape=(2, 3))
-            self.bV1 = self.params.get('bV1', shape=(2, 1))
-            self.V2 = self.params.get('V2', shape=(1, 2))
-            self.bV2 = self.params.get('bV2', shape=(1, 1))
+            # # 设定MLP的学习参数W1,W2,V1,V2
+            # self.W1 = self.params.get('W1', shape=(factor_cnt, 2 * factor_cnt))
+            # self.bW1 = self.params.get('bW1', shape=(factor_cnt, 1))
+            # self.W2 = self.params.get('W2', shape=(1, factor_cnt))
+            # self.bW2 = self.params.get('bW2', shape=(1, 1))
+            # self.V1 = self.params.get('V1', shape=(2, 3))
+            # self.bV1 = self.params.get('bV1', shape=(2, 1))
+            # self.V2 = self.params.get('V2', shape=(1, 2))
+            # self.bV2 = self.params.get('bV2', shape=(1, 1))
+
+            self.mlp = gluon.nn.Sequential()
+            self.mlp.add(gluon.nn.Dense(factor_cnt, 'relu'))
+            self.mlp.add(gluon.nn.Dropout(.5))
+            self.mlp.add(gluon.nn.Dense(1, 'relu'))
 
     # 求某一个日期对某用户的平均评分日期的偏移
     def _get_dev(self, u, t):
@@ -119,15 +124,15 @@ class TimeSVDpp(gluon.nn.Block):
         p_long = self.p_long.data()
         alpha_preference = self.alpha_preference.data()
         p_short = self.p_short.data()
-        # 取出MLP参数
-        W1 = self.W1.data()
-        bW1 = self.bW1.data()
-        W2 = self.W2.data()
-        bW2 = self.bW2.data()
-        V1 = self.V1.data()
-        bV1 = self.bV1.data()
-        V2 = self.V2.data()
-        bV2 = self.bV2.data()
+        # # 取出MLP参数
+        # W1 = self.W1.data()
+        # bW1 = self.bW1.data()
+        # W2 = self.W2.data()
+        # bW2 = self.bW2.data()
+        # V1 = self.V1.data()
+        # bV1 = self.bV1.data()
+        # V2 = self.V2.data()
+        # bV2 = self.bV2.data()
 
         dev = self._get_dev(u, t)
 
@@ -146,18 +151,20 @@ class TimeSVDpp(gluon.nn.Block):
         sum_y = sum_y / math.sqrt(len(self.items_of_user[u]))
 
         # 预测评分
-        relu = gluon.nn.Activation('relu')
+        # relu = gluon.nn.Activation('relu')
         q = q[i].reshape((-1, 1))
         p = p.reshape((-1, 1)) + sum_y.reshape((-1, 1))
         qp = nd.concat(q, p, dim=0)
-        mW = nd.dot(W1, qp) + bW1
-        mW = relu(mW)
-        phi = (nd.dot(W2, mW) + bW2) + nd.dot(q.T, p)
-        preference = nd.concat(phi, b_item.reshape((1, 1)),
-                               b_user.reshape((1, 1)), dim=0)
-        mV = nd.dot(V1, preference) + bV1
-        mV = relu(mV)
-        r_hat = (nd.dot(V2, mV) + bV2) + preference.sum()
+        phi = self.mlp(qp) + nd.dot(q.T, p)
+        r_hat = phi + b_item.reshape((1, 1)) + b_user.reshape((1, 1)) + self.mu
+        # mW = nd.dot(W1, qp) + bW1
+        # mW = relu(mW)
+        # phi = (nd.dot(W2, mW) + bW2) + nd.dot(q.T, p)
+        # preference = nd.concat(phi, b_item.reshape((1, 1)),
+        #                        b_user.reshape((1, 1)), dim=0)
+        # mV = nd.dot(V1, preference) + bV1
+        # mV = relu(mV)
+        # r_hat = (nd.dot(V2, mV) + bV2) + preference.sum()
 
         return r_hat
 
@@ -177,15 +184,15 @@ class TimeSVDpp(gluon.nn.Block):
         p_long = self.p_long.data()
         alpha_preference = self.alpha_preference.data()
         p_short = self.p_short.data()
-        # 取出MLP参数
-        W1 = self.W1.data()
-        W2 = self.W2.data()
-        bW1 = self.bW1.data()
-        bW2 = self.bW2.data()
-        V1 = self.V1.data()
-        V2 = self.V2.data()
-        bV1 = self.bV1.data()
-        bV2 = self.bV2.data()
+        # # 取出MLP参数
+        # W1 = self.W1.data()
+        # W2 = self.W2.data()
+        # bW1 = self.bW1.data()
+        # bW2 = self.bW2.data()
+        # V1 = self.V1.data()
+        # V2 = self.V2.data()
+        # bV1 = self.bV1.data()
+        # bV2 = self.bV2.data()
 
         regularization = (q[i] ** 2).sum()
         regularization = regularization + (y[i] ** 2).sum()
@@ -199,22 +206,27 @@ class TimeSVDpp(gluon.nn.Block):
         regularization = regularization + \
             (alpha_preference[u] ** 2).sum()
         regularization = regularization + (p_short[u] ** 2).sum()
-        regularization = regularization + (W1 ** 2).sum()
-        regularization = regularization + (W2 ** 2).sum()
-        regularization = regularization + (bW1 ** 2).sum()
-        regularization = regularization + (bW2 ** 2).sum()
-        regularization = regularization + (V1 ** 2).sum()
-        regularization = regularization + (V2 ** 2).sum()
-        regularization = regularization + (bV1 ** 2).sum()
-        regularization = regularization + (bV2 ** 2).sum()
+        for key in self.mlp.collect_params():
+            regularization = regularization + \
+                (self.mlp.collect_params()[key].data() ** 2).sum()
+        # regularization = regularization + (W1 ** 2).sum()
+        # regularization = regularization + (W2 ** 2).sum()
+        # regularization = regularization + (bW1 ** 2).sum()
+        # regularization = regularization + (bW2 ** 2).sum()
+        # regularization = regularization + (V1 ** 2).sum()
+        # regularization = regularization + (V2 ** 2).sum()
+        # regularization = regularization + (bV1 ** 2).sum()
+        # regularization = regularization + (bV2 ** 2).sum()
         return regularization
 
 
 timeSVDpp = TimeSVDpp(userItems, user_meanday,
                       nItems, nUsers, nDays, average_rating)
 timeSVDpp.initialize()
-trainer = gluon.Trainer(timeSVDpp.collect_params(), 'sgd',
-                        {'learning_rate': .005})
+# trainer = gluon.Trainer(timeSVDpp.collect_params(), 'sgd',
+#                         {'learning_rate': .0005})
+trainer = gluon.Trainer(timeSVDpp.collect_params(), 'adam',
+                        {'beta1': .9, 'beta2': .999})
 
 lambda_reg = .002
 epoch_cnt = 10
