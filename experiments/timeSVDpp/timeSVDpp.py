@@ -162,18 +162,18 @@ class TimeSVDpp(gluon.nn.Block):
         p_short_u = self.p_short[u].data()
         alpha_preference_u = self.alpha_preference[u].data()
 
-        regularization = (q_i ** 2).sum()
-        regularization = regularization + (y_i ** 2).sum()
+        regularization = nd.sum((q_i ** 2))
+        regularization = regularization + nd.sum((y_i ** 2))
         regularization = regularization + b_item_long[i] ** 2
         regularization = regularization + \
             b_item_short[i][self._get_bin_index(t)] ** 2
         regularization = regularization + b_user_long[u] ** 2
         regularization = regularization + alpha_bias[u] ** 2
         regularization = regularization + b_user_short[u][t] ** 2
-        regularization = regularization + (p_long_u ** 2).sum()
+        regularization = regularization + nd.sum((p_long_u ** 2))
         regularization = regularization + \
-            (alpha_preference_u ** 2).sum()
-        regularization = regularization + (p_short_u ** 2).sum()
+            nd.sum((alpha_preference_u ** 2))
+        regularization = regularization + nd.sum((p_short_u ** 2))
         return regularization
 
 
