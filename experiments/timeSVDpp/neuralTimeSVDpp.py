@@ -48,7 +48,7 @@ class TimeSVDpp(gluon.nn.Block):
 
     def __init__(self, items_of_user, user_meanday,
                  item_cnt, user_cnt, day_cnt, average_rating,
-                 factor_cnt=20, bin_size=30, beta=.4, ** kwargs):
+                 factor_cnt=10, bin_cnt=30, beta=.4, ** kwargs):
         super(TimeSVDpp, self).__init__(**kwargs)
 
         item_cnt += 1
@@ -60,11 +60,8 @@ class TimeSVDpp(gluon.nn.Block):
         self.item_cnt = item_cnt
         self.user_cnt = user_cnt
         self.mu = average_rating
-
+        self.bin_size = math.ceil(day_cnt / bin_cnt)
         self.beta = beta
-        self.bin_size = bin_size
-        # 一个物品所经历的时间被分为一块块小的时间段,每个时间段被叫作一个bin,这是bin的总数
-        bin_cnt = day_cnt // bin_size + 1
 
         with self.name_scope():
             # 设定学习参数q与y,即物品属性与使用该物品的用户的属性
@@ -242,6 +239,27 @@ timeSVDpp = TimeSVDpp(userItems, user_meanday,
 timeSVDpp.initialize()
 
 
+# 测试模型
+def test():
+    test_total_loss = 0
+    tested_cnt = 0
+    # 遍历测试集检验结果
+    for user in test_userItems.keys():
+        for item in test_userItems[user]:
+            r_hat = timeSVDpp(user, item[0], int(item[2]))
+            loss = (r_hat - item[1]) ** 2
+            test_total_loss += loss
+            tested_cnt += 1
+            # 输出当前进度和误差
+            print('Testing, tested percent:',
+                  tested_cnt / test_rating_cnt, '. \tLoss =',
+                  math.sqrt((test_total_loss / tested_cnt)[0].asscalar()),
+                  end='\r')
+    # 输出总误差
+    print('\nTest finished, Loss =',
+          math.sqrt((test_total_loss / test_rating_cnt)[0].asscalar()))
+
+
 # 训练模型
 def train(epoch_cnt=10, lambda_reg=.002, learning_method='sgd',
           learning_params=None, random_data=True):
@@ -297,17 +315,4 @@ def train(epoch_cnt=10, lambda_reg=.002, learning_method='sgd',
         print('\nEpoch', epoch, 'finished, Loss =',
               (total_loss / rating_cnt)[0].asscalar())
 
-        # 测试模型
-        test_total_loss = 0
-        tested_cnt = 0
-        for user in test_userItems.keys():
-            for item in test_userItems[user]:
-                r_hat = timeSVDpp(user, item[0], int(item[2]))
-                loss = (r_hat - item[1]) ** 2
-                test_total_loss += loss
-                tested_cnt += 1
-                print('Epoch', epoch, 'testing, tested percent:',
-                      tested_cnt / test_rating_cnt, '. \tLoss =',
-                      (test_total_loss / tested_cnt)[0].asscalar(), end='\r')
-        print('\nTest finished, Loss =',
-              (test_total_loss / test_rating_cnt)[0].asscalar())
+        test()
