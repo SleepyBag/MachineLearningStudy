@@ -1,2 +1,5 @@
 # vim 生成的swp文件
-*.swp
+**.swp
+# python缓存
+**/__pycache__
+
