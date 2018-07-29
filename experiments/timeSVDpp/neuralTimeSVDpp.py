@@ -5,43 +5,43 @@ from mxnet import ndarray as nd
 import math
 import random
 
-data_loader = loadMovieData()
-userItems, nUsers, nItems, nDays, minTimestamp = \
-    data_loader.main('ml-100k/u1.base')
-test_userItems, test_nUsers, test_nItems, test_nDays, test_minTimestapm = \
-    data_loader.main('ml-100k/u1.test')
+# data_loader = loadMovieData()
+# userItems, nUsers, nItems, nDays, minTimestamp = \
+#     data_loader.main('ml-100k/u1.base')
+# test_userItems, test_nUsers, test_nItems, test_nDays, test_minTimestapm = \
+#     data_loader.main('ml-100k/u1.test')
 
-# 计算总平均分数
-average_rating = 0
-rating_cnt = 0
-for user in userItems.keys():
-    items = userItems[user]
-    for item in items:
-        average_rating += item[1]
-        rating_cnt += 1
-average_rating /= rating_cnt
+# # 计算总平均分数
+# average_rating = 0
+# rating_cnt = 0
+# for user in userItems.keys():
+#     items = userItems[user]
+#     for item in items:
+#         average_rating += item[1]
+#         rating_cnt += 1
+# average_rating /= rating_cnt
 
-# 计算测试集容量
-test_rating_cnt = 0
-for user in test_userItems.keys():
-    items = test_userItems[user]
-    for item in items:
-        test_rating_cnt += 1
+# # 计算测试集容量
+# test_rating_cnt = 0
+# for user in test_userItems.keys():
+#     items = test_userItems[user]
+#     for item in items:
+#         test_rating_cnt += 1
 
-# 为每一个用户计算他所有评分日的平均数
-user_meanday = {}
-for user in userItems.keys():
-    items = userItems[user]
-    meanday = 0
-    for item in items:
-        meanday += item[2] / len(items)
-    user_meanday[user] = meanday
+# # 为每一个用户计算他所有评分日的平均数
+# user_meanday = {}
+# for user in userItems.keys():
+#     items = userItems[user]
+#     meanday = 0
+#     for item in items:
+#         meanday += item[2] / len(items)
+#     user_meanday[user] = meanday
 
-# 将数据整理到一个序列中
-data = []
-for user in userItems.keys():
-    for item in userItems[user]:
-        data.append((user,) + item)
+# # 将数据整理到一个序列中
+# data = []
+# for user in userItems.keys():
+#     for item in userItems[user]:
+#         data.append((user,) + item)
 
 
 class TimeSVDpp(gluon.nn.Block):
@@ -181,56 +181,56 @@ class TimeSVDpp(gluon.nn.Block):
 
         return r_hat
 
-    # 计算正则化项的值,也就是所有相关参数的平方和
-    def get_regularization(self, u, i, t):
-        # 取出物品属性参数
-        q_i = self.q[i].data()
-        y_i = self.y[i].data()
-        # 取出物品偏移参数
-        b_item_long = self.b_item_long.data()
-        b_item_short = self.b_item_short.data()
-        # 取出用户偏移参数
-        b_user_long = self.b_user_long.data()
-        alpha_bias = self.alpha_bias.data()
-        b_user_short = self.b_user_short.data()
-        # 取出用户偏好参数
-        p_long_u = self.p_long[u].data()
-        p_short_u = self.p_short[u].data()
-        alpha_preference_u = self.alpha_preference[u].data()
-        # # 取出MLP参数
-        # W1 = self.W1.data()
-        # W2 = self.W2.data()
-        # bW1 = self.bW1.data()
-        # bW2 = self.bW2.data()
-        # V1 = self.V1.data()
-        # V2 = self.V2.data()
-        # bV1 = self.bV1.data()
-        # bV2 = self.bV2.data()
+    # # 计算正则化项的值,也就是所有相关参数的平方和
+    # def get_regularization(self, u, i, t):
+    #     # 取出物品属性参数
+    #     q_i = self.q[i].data()
+    #     y_i = self.y[i].data()
+    #     # 取出物品偏移参数
+    #     b_item_long = self.b_item_long.data()
+    #     b_item_short = self.b_item_short.data()
+    #     # 取出用户偏移参数
+    #     b_user_long = self.b_user_long.data()
+    #     alpha_bias = self.alpha_bias.data()
+    #     b_user_short = self.b_user_short.data()
+    #     # 取出用户偏好参数
+    #     p_long_u = self.p_long[u].data()
+    #     p_short_u = self.p_short[u].data()
+    #     alpha_preference_u = self.alpha_preference[u].data()
+    #     # # 取出MLP参数
+    #     # W1 = self.W1.data()
+    #     # W2 = self.W2.data()
+    #     # bW1 = self.bW1.data()
+    #     # bW2 = self.bW2.data()
+    #     # V1 = self.V1.data()
+    #     # V2 = self.V2.data()
+    #     # bV1 = self.bV1.data()
+    #     # bV2 = self.bV2.data()
 
-        regularization = (q_i ** 2).sum()
-        regularization = regularization + (y_i ** 2).sum()
-        regularization = regularization + b_item_long[i] ** 2
-        regularization = regularization + \
-            b_item_short[i][self._get_bin_index(t)] ** 2
-        regularization = regularization + b_user_long[u] ** 2
-        regularization = regularization + alpha_bias[u] ** 2
-        regularization = regularization + b_user_short[u][t] ** 2
-        regularization = regularization + (p_long_u ** 2).sum()
-        regularization = regularization + \
-            (alpha_preference_u ** 2).sum()
-        regularization = regularization + (p_short_u ** 2).sum()
-        for key in self.mlp.collect_params():
-            regularization = regularization + \
-                (self.mlp.collect_params()[key].data() ** 2).sum()
-        # regularization = regularization + (W1 ** 2).sum()
-        # regularization = regularization + (W2 ** 2).sum()
-        # regularization = regularization + (bW1 ** 2).sum()
-        # regularization = regularization + (bW2 ** 2).sum()
-        # regularization = regularization + (V1 ** 2).sum()
-        # regularization = regularization + (V2 ** 2).sum()
-        # regularization = regularization + (bV1 ** 2).sum()
-        # regularization = regularization + (bV2 ** 2).sum()
-        return regularization
+    #     regularization = (q_i ** 2).sum()
+    #     regularization = regularization + (y_i ** 2).sum()
+    #     regularization = regularization + b_item_long[i] ** 2
+    #     regularization = regularization + \
+    #         b_item_short[i][self._get_bin_index(t)] ** 2
+    #     regularization = regularization + b_user_long[u] ** 2
+    #     regularization = regularization + alpha_bias[u] ** 2
+    #     regularization = regularization + b_user_short[u][t] ** 2
+    #     regularization = regularization + (p_long_u ** 2).sum()
+    #     regularization = regularization + \
+    #         (alpha_preference_u ** 2).sum()
+    #     regularization = regularization + (p_short_u ** 2).sum()
+    #     for key in self.mlp.collect_params():
+    #         regularization = regularization + \
+    #             (self.mlp.collect_params()[key].data() ** 2).sum()
+    #     # regularization = regularization + (W1 ** 2).sum()
+    #     # regularization = regularization + (W2 ** 2).sum()
+    #     # regularization = regularization + (bW1 ** 2).sum()
+    #     # regularization = regularization + (bW2 ** 2).sum()
+    #     # regularization = regularization + (V1 ** 2).sum()
+    #     # regularization = regularization + (V2 ** 2).sum()
+    #     # regularization = regularization + (bV1 ** 2).sum()
+    #     # regularization = regularization + (bV2 ** 2).sum()
+    #     return regularization
 
 
 # 定义模型
@@ -239,72 +239,65 @@ timeSVDpp = TimeSVDpp(userItems, user_meanday,
 timeSVDpp.initialize()
 
 
-# 测试模型
-def test():
-    test_total_loss = 0
-    tested_cnt = 0
-    # 遍历测试集检验结果
-    for user in test_userItems.keys():
-        for item in test_userItems[user]:
-            r_hat = timeSVDpp(user, item[0], int(item[2]))
-            loss = (r_hat - item[1]) ** 2
-            test_total_loss += loss
-            tested_cnt += 1
-            # 输出当前进度和误差
-            print('Testing, tested percent:',
-                  tested_cnt / test_rating_cnt, '. \tLoss =',
-                  math.sqrt((test_total_loss / tested_cnt)[0].asscalar()),
-                  end='\r')
-    # 输出总误差
-    print('\nTest finished, Loss =',
-          math.sqrt((test_total_loss / test_rating_cnt)[0].asscalar()))
+class Trainer():
+    # 记录所有数据
+    def __init__(self, items_of_user, test_rating_cnt,
+                 test_rating_cnt, rating_cnt):
+        self.items_of_user = items_of_user
+        self.test_rating_cnt = test_rating_cnt
+        
+        return 0
 
+    # 测试模型
+    def test(self):
+        test_total_loss = 0
+        tested_cnt = 0
+        # 遍历测试集检验结果
+        for user in test_userItems.keys():
+            for item in test_userItems[user]:
+                r_hat = timeSVDpp(user, item[0], int(item[2]))
+                loss = (r_hat - item[1]) ** 2
+                test_total_loss += loss
+                tested_cnt += 1
+                # 输出当前进度和误差
+                print('Testing, tested percent:',
+                      tested_cnt / test_rating_cnt, '. \tLoss =',
+                      math.sqrt((test_total_loss / tested_cnt)[0].asscalar()),
+                      end='\r')
+        # 输出总误差
+        print('\nTest finished, Loss =',
+              math.sqrt((test_total_loss / test_rating_cnt)[0].asscalar()))
 
-# 训练模型
-def train(epoch_cnt=10, lambda_reg=.002, learning_method='sgd',
-          learning_params=None, random_data=True):
-    # 默认学习参数
-    if learning_params is None:
-        if learning_method == 'sgd':
-            learning_params = {'learning_rate': .005}
-        elif learning_method == 'adam':
-            learning_params = {'beta1': .9, 'beta2': .999}
-    # 定义训练器
-    trainer = gluon.Trainer(timeSVDpp.collect_params(),
-                            learning_method, learning_params)
+    # 训练模型
+    def train(self, epoch_cnt=10, lambda_reg=.002, learning_method='sgd',
+              learning_params=None, random_data=True):
+        # 默认学习参数
+        if learning_params is None:
+            if learning_method == 'sgd':
+                learning_params = {'learning_rate': .005}
+            elif learning_method == 'adam':
+                learning_params = {'beta1': .9, 'beta2': .999}
+        learning_params['wd'] = lambda_reg
 
-    # 训练过程
-    for epoch in range(epoch_cnt):
-        total_loss = 0
-        trained_cnt = 0
-        # 使用随机数据训练
-        if random_data is True:
-            # 随机重排序列防止过拟合
-            random.shuffle(data)
-            # 训练模型
-            for item in data:
-                with mxnet.autograd.record():
-                    r_hat = timeSVDpp(item[0], item[1], int(item[3]))
-                    loss = (r_hat - item[2]) ** 2
-                    loss = loss + lambda_reg * \
-                        timeSVDpp.get_regularization(item[0], item[1], int(item[3]))
-                loss.backward()
-                trainer.step(1, ignore_stale_grad=True)
-                total_loss += loss
-                trained_cnt += 1
-                print('Epoch', epoch, 'training, ', trained_cnt / rating_cnt,
-                      'trained. \tLoss =',
-                      (total_loss / trained_cnt)[0].asscalar(), end='\r')
-        # 使用顺序数据训练
-        else:
-            for user in userItems:
-                items = userItems[user]
-                for item in items:
+        # 定义训练器
+        trainer = gluon.Trainer(timeSVDpp.collect_params(),
+                                learning_method, learning_params)
+
+        # 训练过程
+        for epoch in range(epoch_cnt):
+            total_loss = 0
+            trained_cnt = 0
+            # 使用随机数据训练
+            if random_data is True:
+                # 随机重排序列防止过拟合
+                random.shuffle(data)
+                # 训练模型
+                for item in data:
                     with mxnet.autograd.record():
-                        r_hat = timeSVDpp(user, item[0], int(item[2]))
-                        loss = (r_hat - item[1]) ** 2
+                        r_hat = timeSVDpp(item[0], item[1], int(item[3]))
+                        loss = (r_hat - item[2]) ** 2
                         loss = loss + lambda_reg * \
-                            timeSVDpp.get_regularization(user, item[0], int(item[2]))
+                            timeSVDpp.get_regularization(item[0], item[1], int(item[3]))
                     loss.backward()
                     trainer.step(1, ignore_stale_grad=True)
                     total_loss += loss
@@ -312,7 +305,24 @@ def train(epoch_cnt=10, lambda_reg=.002, learning_method='sgd',
                     print('Epoch', epoch, 'training, ', trained_cnt / rating_cnt,
                           'trained. \tLoss =',
                           (total_loss / trained_cnt)[0].asscalar(), end='\r')
-        print('\nEpoch', epoch, 'finished, Loss =',
-              (total_loss / rating_cnt)[0].asscalar())
+            # 使用顺序数据训练
+            else:
+                for user in userItems:
+                    items = userItems[user]
+                    for item in items:
+                        with mxnet.autograd.record():
+                            r_hat = timeSVDpp(user, item[0], int(item[2]))
+                            loss = (r_hat - item[1]) ** 2
+                            loss = loss + lambda_reg * \
+                                timeSVDpp.get_regularization(user, item[0], int(item[2]))
+                        loss.backward()
+                        trainer.step(1, ignore_stale_grad=True)
+                        total_loss += loss
+                        trained_cnt += 1
+                        print('Epoch', epoch, 'training, ', trained_cnt / rating_cnt,
+                              'trained. \tLoss =',
+                              (total_loss / trained_cnt)[0].asscalar(), end='\r')
+            print('\nEpoch', epoch, 'finished, Loss =',
+                  (total_loss / rating_cnt)[0].asscalar())
 
-        test()
+            test()

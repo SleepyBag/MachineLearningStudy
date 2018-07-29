@@ -33,9 +33,6 @@ class TimeSVDpp(gluon.nn.HybridBlock):
             self.mlp1_W3 = self.params.get('mlp1_W3', shape=(factor_cnt // 2, 1))
             self.mlp1_b3 = self.params.get('mlp1_b3', shape=(1, 1))
             self.mlp1_dropout = gluon.nn.Dropout(.5)
-            # 设定MLP模块的学习参数p_mlp和q_mlp,分别代表用户和商品(不考虑时间变化)
-            self.p_mlp = self.params.get('p_mlp', shape=(user_cnt, factor_cnt))
-            self.q_mlp = self.params.get('q_mlp', shape=(item_cnt, factor_cnt))
 
             # 设定学习参数q与y,即物品属性与使用该物品的用户的属性
             self.q = self.params.get('q', shape=(item_cnt, factor_cnt))
@@ -61,7 +58,7 @@ class TimeSVDpp(gluon.nn.HybridBlock):
 
     def hybrid_forward(self, F, u, i, t, R_u, dev, bint, q, y, b_item_long,
                        b_item_short, b_user_long, alpha_bias, b_user_short,
-                       p_long, alpha_preference, p_short, p_mlp, q_mlp,
+                       p_long, alpha_preference, p_short,
                        mlp1_W1, mlp1_b1, mlp1_W2, mlp1_b2, mlp1_W3, mlp1_b3):
         # 根据下标取数据
         b_item_long_i = F.dot(i, b_item_long).reshape((1, 1))
@@ -74,8 +71,6 @@ class TimeSVDpp(gluon.nn.HybridBlock):
         alpha_preference_u = F.dot(u, alpha_preference)
         p_short_u = F.dot(t, F.dot(u, p_short).reshape(
             (self.day_cnt, self.factor_cnt)))
-        p_u_mlp = F.dot(u, p_mlp)
-        q_i_mlp = F.dot(i, q_mlp)
 
         b_item = b_item_long_i + b_item_short_i_bint                   # 商品偏移
         b_user = alpha_bias_u * dev.reshape((1, 1)) + \
@@ -87,7 +82,7 @@ class TimeSVDpp(gluon.nn.HybridBlock):
         q_i = F.dot(i, q)                                              # 商品属性
 
         # MLP输出
-        mlp = F.concat(p_u_mlp, q_i_mlp, dim=1)
+        mlp = F.concat(q_i, p, dim=1)
         mlp = F.dot(mlp, mlp1_W1) + mlp1_b1
         mlp = F.relu(mlp)
         mlp = F.dot(mlp, mlp1_W2) + mlp1_b2
@@ -103,7 +98,6 @@ class TimeSVDpp(gluon.nn.HybridBlock):
             alpha_bias_u ** 2 + b_user_short_u_t ** 2 + F.sum(p_long_u ** 2).reshape((1, 1)) + \
             F.sum(alpha_preference_u ** 2).reshape((1, 1)) + F.sum(p_short_u ** 2).reshape((1, 1)) + \
             F.sum(q_i ** 2).reshape((1, 1)) + F.sum(F.dot(R_u, y ** 2)).reshape((1, 1)) + \
-            F.sum(p_mlp ** 2).reshape((1, 1)) + F.sum(q_mlp ** 2).reshape((1, 1)) + \
             F.sum(mlp1_W1 ** 2).reshape((1, 1)) + F.sum(mlp1_b1 ** 2).reshape((1, 1)) + \
             F.sum(mlp1_W2 ** 2).reshape((1, 1)) + F.sum(mlp1_b2 ** 2).reshape((1, 1))
 

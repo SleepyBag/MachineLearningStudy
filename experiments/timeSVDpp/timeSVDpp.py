@@ -1,48 +1,8 @@
 from mxnet import gluon
 import mxnet
-from load_movie_data import loadMovieData
 from mxnet import ndarray as nd
 import math
 import random
-
-
-data_loader = loadMovieData()
-userItems, nUsers, nItems, nDays, minTimestamp = \
-    data_loader.main('ml-100k/u1.base')
-test_userItems, test_nUsers, test_nItems, test_nDays, test_minTimestapm = \
-    data_loader.main('ml-100k/u1.test')
-
-# 计算总平均分数
-average_rating = 0
-rating_cnt = 0
-for user in userItems.keys():
-    items = userItems[user]
-    for item in items:
-        average_rating += item[1]
-        rating_cnt += 1
-average_rating /= rating_cnt
-
-# 计算测试集容量
-test_rating_cnt = 0
-for user in test_userItems.keys():
-    items = test_userItems[user]
-    for item in items:
-        test_rating_cnt += 1
-
-# 为每一个用户计算他所有评分日的平均数
-user_meanday = {}
-for user in userItems.keys():
-    items = userItems[user]
-    meanday = 0
-    for item in items:
-        meanday += item[2] / len(items)
-    user_meanday[user] = meanday
-
-# 将数据整理到一个序列中
-data = []
-for user in userItems.keys():
-    for item in userItems[user]:
-        data.append((user,) + item)
 
 
 # 用户的属性
@@ -230,6 +190,7 @@ def train(items_of_user, users, items, ys, timeSVDpp, epoch_cnt=10,
             learning_params = {'learning_rate': .005}
         elif learning_method == 'adam':
             learning_params = {'beta1': .9, 'beta2': .999}
+    learning_params['wd'] = lambda_reg
 
     # 定义训练器
     trainer_user = {}
@@ -306,3 +267,6 @@ def train(items_of_user, users, items, ys, timeSVDpp, epoch_cnt=10,
         #       (total_loss / rating_cnt)[0].asscalar())
 
         test()
+
+
+train(userItems, users, items, ys, timeSVDpp, learning_method='adam')

@@ -1,6 +1,7 @@
 from load_movie_data import loadMovieData
 import mxnet
 import timeSVDpp_hybridize
+import neuralTimeSVDpp_v1_hybridize
 import neuralTimeSVDpp_v2_hybridize
 
 
@@ -81,6 +82,13 @@ with mxnet.Context(context):
                     user_meanday, nItems, nUsers, nDays, average_rating,
                     factor_cnt, bin_cnt, beta)
         timeSVDpp_trainer.train(epoch_cnt, learning_method, learning_params)
+    # neuralTimeSVD++ v1
+    if model == '2':
+        neuralTimeSVDpp_v1_trainer = neuralTimeSVDpp_v1_hybridize. \
+            Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+                    user_meanday, nItems, nUsers, nDays, average_rating,
+                    factor_cnt, bin_cnt, beta)
+        neuralTimeSVDpp_v1_trainer.train(epoch_cnt, learning_method, learning_params)
     # neuralTimeSVD++ v2
     elif model == '3':
         neuralTimeSVDpp_v2_trainer = neuralTimeSVDpp_v2_hybridize. \
