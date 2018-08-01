@@ -1,8 +1,9 @@
 from load_movie_data import loadMovieData
 import mxnet
 import timeSVDpp_hybridize
-import neuralTimeSVDpp_v1_hybridize
-import neuralTimeSVDpp_v2_hybridize
+import v1
+import v2
+import v3
 
 
 data_loader = loadMovieData()
@@ -58,7 +59,7 @@ else:
 
 with mxnet.Context(context):
     model = input('Which model do you want to train?\n' +
-                  '1. timeSVD++\t2. neuralTimeSVD++ v1\t3. neuralTimeSVD++ v2\n')
+                  '1. timeSVD++\t2. neuralTimeSVD++ v1\t3. neuralTimeSVD++ v2\t 4. neuralTimeSVD++ v3\n')
     bin_cnt = input_param('bin_cnt', 30)
     beta = input_param('beta', .4)
     factor_cnt = input_param('factor_cnt', 10)
@@ -74,6 +75,7 @@ with mxnet.Context(context):
         learning_params['learning_rate'] = input_param('learning_rate', .001)
         learning_params['wd'] = input_param('wd', .01)
     epoch_cnt = input_param('epoch_cnt', 20)
+    verbose = input_param('verbose', 15)
 
     # timeSVD++
     if model == '1':
@@ -84,15 +86,21 @@ with mxnet.Context(context):
         timeSVDpp_trainer.train(epoch_cnt, learning_method, learning_params)
     # neuralTimeSVD++ v1
     if model == '2':
-        neuralTimeSVDpp_v1_trainer = neuralTimeSVDpp_v1_hybridize. \
+        v1_trainer = v1. \
             Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
                     user_meanday, nItems, nUsers, nDays, average_rating,
                     factor_cnt, bin_cnt, beta)
-        neuralTimeSVDpp_v1_trainer.train(epoch_cnt, learning_method, learning_params)
+        v1_trainer.train(epoch_cnt, learning_method, learning_params)
     # neuralTimeSVD++ v2
     elif model == '3':
-        neuralTimeSVDpp_v2_trainer = neuralTimeSVDpp_v2_hybridize. \
+        v2_trainer = v2. \
             Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
                     user_meanday, nItems, nUsers, nDays, average_rating,
                     factor_cnt, bin_cnt, beta)
-        neuralTimeSVDpp_v2_trainer.train(epoch_cnt, learning_method, learning_params)
+        v2_trainer.train(epoch_cnt, learning_method, learning_params, verbose)
+    elif model == '4':
+        v3_trainer = v3. \
+            Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+                    user_meanday, nItems, nUsers, nDays, average_rating,
+                    factor_cnt, bin_cnt, beta)
+        v3_trainer.train(epoch_cnt, learning_method, learning_params, verbose)

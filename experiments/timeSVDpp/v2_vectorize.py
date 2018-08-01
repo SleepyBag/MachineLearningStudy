@@ -6,6 +6,66 @@ import random
 from tqdm import tqdm
 
 
+# 用户的属性
+class User(gluon.nn.Block):
+    def __init__(self, day_cnt, factor_cnt, ** kwargs):
+        super(User, self).__init__(**kwargs)
+
+        # 复制数据到对象中
+        self.factor_cnt = factor_cnt
+
+        with self.name_scope():
+            # 设定学习参数b_user_long,alpha_b与b_user_short,即用户的长期偏移,用户偏移的长期变化系数,和用户的单日偏移
+            self.b_user_long = self.params.get('b_user_long', shape=(1, 1))
+            self.alpha_b = self.params.get('alpha_b', shape=(1, 1))
+            self.b_user_short = []
+            for i in range(day_cnt):
+                self.b_user_short.append(self.params.get(
+                    'b_user_short' + str(i), shape=(1, 1)))
+
+            # 设定学习参数p_long,alpha_p与p_short,即用户的偏好,用户偏好的长期变化系数,用户爱好的单日变化
+            self.p_long = self.params.get('p_long', shape=(1, factor_cnt))
+            self.p_short = []
+            for i in range(day_cnt):
+                self.p_short.append(self.params.get(
+                    'p_short', shape=(1, factor_cnt)))
+            self.alpha_p = self.params.get('alpha_p', shape=(1, factor_cnt))
+            self.p_mlp = self.params.get('p_mlp', shape=(1, factor_cnt))
+
+    def forward(self, t):
+        b_user_short = self.b_user_short[t]  # 用户偏移
+        p_short = self.p_short[t]            # 用户偏好
+        return self.b_user_long.data(), self.alpha_b.data(), b_user_short.data(), \
+            self.p_long.data(), p_short.data(), self.alpha_p.data(), self.p_mlp.data()
+
+
+# 商品的属性
+class Item(gluon.nn.Block):
+    def __init__(self, bin_cnt, factor_cnt, ** kwargs):
+        super(Item, self).__init__(**kwargs)
+
+        # 复制数据到对象中
+        self.factor_cnt = factor_cnt
+        self.bin_cnt = bin_cnt
+
+        with self.name_scope():
+            # 设定学习参数q,即物品属性与使用该物品的用户的属性
+            self.q = self.params.get('q', shape=(1, factor_cnt))
+            self.q_mlp = self.params.get('q_mlp', shape=(1, factor_cnt))
+
+            # 设定学习参数b_item_long与b_item_short,即物品的长期偏移与临时偏移
+            self.b_item_long = self.params.get('b_item_long', shape=(1, 1))
+            self.b_item_short = []
+            for i in range(bin_cnt):
+                self.b_item_short.append(self.params.get(
+                    'b_item_short' + str(i), shape=(1, 1)))
+
+    def forward(self, bint):
+        b_item_short = self.b_item_short[bint]
+        return self.b_item_long.data(), b_item_short.data(), self.q.data(), \
+            self.q_mlp.data()
+
+
 class TimeSVDpp(gluon.nn.HybridBlock):
 
     def __init__(self, item_cnt, user_cnt, day_cnt, average_rating,
@@ -33,61 +93,25 @@ class TimeSVDpp(gluon.nn.HybridBlock):
             self.mlp1_W3 = self.params.get('mlp1_W3', shape=(factor_cnt // 2, 1))
             self.mlp1_b3 = self.params.get('mlp1_b3', shape=(1, 1))
             self.mlp1_dropout = gluon.nn.Dropout(.5)
-            # 设定MLP模块的学习参数p_mlp和q_mlp,分别代表用户和商品(不考虑时间变化)
-            self.p_mlp = self.params.get('p_mlp', shape=(user_cnt, factor_cnt))
-            self.q_mlp = self.params.get('q_mlp', shape=(item_cnt, factor_cnt))
 
             # 设定学习参数q与y,即物品属性与使用该物品的用户的属性
-            self.q = self.params.get('q', shape=(item_cnt, factor_cnt))
             self.y = self.params.get('y', shape=(item_cnt, factor_cnt))
 
-            # 设定学习参数b_item_long与b_item_short,即物品的长期偏移与临时偏移
-            self.b_item_long = self.params.get('b_item_long', shape=(item_cnt))
-            self.b_item_short = self.params.get(
-                'b_item_short', shape=(item_cnt, bin_cnt))
-
-            # 设定学习参数b_user_long,alpha_bias与b_user_short,即用户的长期偏移,用户偏移的长期变化系数,和用户的单日偏移
-            self.b_user_long = self.params.get('b_user_long', shape=(user_cnt))
-            self.alpha_bias = self.params.get('alpha_bias', shape=(user_cnt))
-            self.b_user_short = self.params.get(
-                'b_user_short', shape=(user_cnt, day_cnt))
-
-            # 设定学习参数p_long,alpha_preference与p_short,即用户的偏好,用户偏好的长期变化系数,用户爱好的单日变化
-            self.p_long = self.params.get('p_long', shape=(user_cnt, factor_cnt))
-            self.alpha_preference = self.params.get(
-                'alpha_preference', shape=(user_cnt, factor_cnt))
-            self.p_short = self.params.get(
-                'p_short', shape=(user_cnt, day_cnt, factor_cnt))
-
-    def hybrid_forward(self, F, u, i, t, R_u, dev, bint, q, y, b_item_long,
-                       b_item_short, b_user_long, alpha_bias, b_user_short,
-                       p_long, alpha_preference, p_short, p_mlp, q_mlp,
+    def hybrid_forward(self, F, b_user_long, alpha_b, b_user_short,
+                       p_long, p_short, alpha_p, p_mlp,
+                       b_item_long, b_item_short, q, q_mlp, R, dev, y,
                        mlp1_W1, mlp1_b1, mlp1_W2, mlp1_b2, mlp1_W3, mlp1_b3):
-        # 根据下标取数据
-        b_item_long_i = F.dot(i, b_item_long).reshape((1, 1))
-        b_item_short_i_bint = F.dot(bint, F.transpose(F.dot(i, b_item_short)))
-        b_user_long_u = F.dot(u, b_user_long).reshape((1, 1))
-        alpha_bias_u = F.dot(u, alpha_bias).reshape((1, 1))
-        b_user_short_u_t = F.dot(t, F.transpose(
-            F.dot(u, b_user_short))).reshape((1, 1))
-        p_long_u = F.dot(u, p_long)
-        alpha_preference_u = F.dot(u, alpha_preference)
-        p_short_u = F.dot(t, F.dot(u, p_short).reshape(
-            (self.day_cnt, self.factor_cnt)))
-        p_u_mlp = F.dot(u, p_mlp)
-        q_i_mlp = F.dot(i, q_mlp)
 
-        b_item = b_item_long_i + b_item_short_i_bint                   # 商品偏移
-        b_user = alpha_bias_u * dev.reshape((1, 1)) + \
-            b_user_short_u_t + b_user_long_u                           # 用户偏移
-        p = p_long_u + p_short_u + alpha_preference_u * \
+        b_item = b_item_long + b_item_short  # 商品偏移
+        b_user = alpha_b * dev.reshape((1, 1)) + \
+            b_user_short + b_user_long                           # 用户偏移
+        p = p_long + p_short + alpha_p * \
             F.broadcast_to(dev.reshape((1, 1)), (1, self.factor_cnt))  # 用户偏好
-        sum_y = F.dot(R_u, y) / F.broadcast_to(F.sqrt(F.sum(R_u).reshape((1, 1))),
-                                               (1, self.factor_cnt))   # 商品影响的用户偏好
-        q_i = F.dot(i, q)                                              # 商品属性
+        sum_y = F.dot(R, y) / F.broadcast_to(F.sqrt(F.sum(R).reshape((1, 1))),
+                                             (1, self.factor_cnt))   # 商品影响的用户偏好
 
         # MLP输出
-        mlp = F.concat(p_u_mlp, q_i_mlp, dim=1)
+        mlp = F.concat(p_mlp, q_mlp, dim=1)
         mlp = F.dot(mlp, mlp1_W1) + mlp1_b1
         mlp = F.relu(mlp)
         mlp = F.dot(mlp, mlp1_W2) + mlp1_b2
@@ -97,12 +121,12 @@ class TimeSVDpp(gluon.nn.HybridBlock):
 
         # 预测评分
         r_hat = self.mu + b_item + b_user + mlp +\
-            F.dot(q_i, F.transpose(p) + F.transpose(sum_y))
+            F.dot(q, F.transpose(p) + F.transpose(sum_y))
         # 计算正则项
-        reg = b_item_long_i ** 2 + b_item_short_i_bint ** 2 + b_user_long_u ** 2 + \
-            alpha_bias_u ** 2 + b_user_short_u_t ** 2 + F.sum(p_long_u ** 2).reshape((1, 1)) + \
-            F.sum(alpha_preference_u ** 2).reshape((1, 1)) + F.sum(p_short_u ** 2).reshape((1, 1)) + \
-            F.sum(q_i ** 2).reshape((1, 1)) + F.sum(F.dot(R_u, y ** 2)).reshape((1, 1)) + \
+        reg = b_item_long ** 2 + b_item_short ** 2 + b_user_long ** 2 + \
+            alpha_b ** 2 + b_user_short ** 2 + F.sum(p_long ** 2).reshape((1, 1)) + \
+            F.sum(alpha_p ** 2).reshape((1, 1)) + F.sum(p_short ** 2).reshape((1, 1)) + \
+            F.sum(q ** 2).reshape((1, 1)) + F.sum(F.dot(R, y ** 2)).reshape((1, 1)) + \
             F.sum(p_mlp ** 2).reshape((1, 1)) + F.sum(q_mlp ** 2).reshape((1, 1)) + \
             F.sum(mlp1_W1 ** 2).reshape((1, 1)) + F.sum(mlp1_b1 ** 2).reshape((1, 1)) + \
             F.sum(mlp1_W2 ** 2).reshape((1, 1)) + F.sum(mlp1_b2 ** 2).reshape((1, 1))
@@ -145,22 +169,24 @@ class Trainer():
             for item in items_of_user[user]:
                 self.random_data.append((user,) + item)
 
-        # 定义模型以及训练器
+        # 定义模型
+        self.users = []
+        self.items = []
+        for i in range(self.user_cnt):
+            self.users.append(User(day_cnt, factor_cnt))
+            self.users[i].initialize()
+        for i in range(self.item_cnt):
+            self.items.append(Item(bin_cnt, factor_cnt))
+            self.items[i].initialize()
         self.timeSVDpp = TimeSVDpp(item_cnt, user_cnt, day_cnt, average_rating,
                                    factor_cnt, bin_cnt, beta)
         self.timeSVDpp.initialize()
-        self.timeSVDpp.hybridize()
+        # self.timeSVDpp.hybridize()
 
     # 求一个日期对应的bin的编号
     def get_bin_index(self, t, bin_cnt, day_cnt):
         bin_size = math.ceil(day_cnt / bin_cnt)
         return t // bin_size
-
-    def get_vector(self, i, cnt):
-        i = int(i)
-        vec = nd.zeros((1, cnt))
-        vec[0][i] = 1
-        return vec
 
     # 求某一个日期对某用户的平均评分日期的偏移
     def get_dev(self, u, t, beta, user_meanday):
@@ -171,14 +197,10 @@ class Trainer():
         return nd.array([ans])
 
     def get_vectors(self, user, item, time):
-        u = self.get_vector(user, self.user_cnt)
         R_u = self.R[user]
-        i = self.get_vector(item, self.item_cnt)
-        t = self.get_vector(time, self.day_cnt)
-        bint = self.get_vector(self.get_bin_index(time, self.bin_cnt,
-                                                  self.day_cnt), self.bin_cnt)
+        bint = self.get_bin_index(time, self.bin_cnt, self.day_cnt)
         dev = self.get_dev(user, time, self.beta, self.user_meanday)
-        return u, R_u, i, t, bint, dev
+        return user, R_u, item, time, bint, dev
 
     # 测试模型
     def test(self):
@@ -202,8 +224,16 @@ class Trainer():
         # 定义训练器
         trainer_learning_params = learning_params
         trainer_learning_params['wd'] = 0
-        trainer = gluon.Trainer(self.timeSVDpp.collect_params(),
-                                learning_method, trainer_learning_params)
+        user_trainer = []
+        item_trainer = []
+        for i in range(self.user_cnt):
+            user_trainer.append(gluon.Trainer(self.users[i].collect_params(),
+                                              learning_method, trainer_learning_params))
+        for i in range(self.item_cnt):
+            item_trainer.append(gluon.Trainer(self.items[i].collect_params(),
+                                              learning_method, trainer_learning_params))
+        timeSVDpp_trainer = gluon.Trainer(self.timeSVDpp.collect_params(),
+                                          learning_method, trainer_learning_params)
 
         # 训练过程
         for epoch in range(epoch_cnt):
@@ -217,11 +247,19 @@ class Trainer():
             for rating in pbar:
                 u, R_u, i, t, bint, dev = self.get_vectors(rating[0], rating[1],
                                                            rating[3])
+                b_user_long, alpha_b, b_user_short, p_long, p_short, alpha_p, \
+                    p_mlp = self.users[u](t)
+                b_item_long, b_item_short, q, q_mlp = self.items[i](bint)
                 with mxnet.autograd.record():
-                    r_hat, reg = self.timeSVDpp(u, i, t, R_u, dev, bint)
+                    r_hat, reg = self.timeSVDpp(b_user_long, alpha_b, b_user_short,
+                                                p_long, p_short, alpha_p, p_mlp,
+                                                b_item_long, b_item_short, q, q_mlp,
+                                                R_u, dev)
                     loss = (r_hat - rating[2]) ** 2 + learning_params['wd'] * reg
                 loss.backward()
-                trainer.step(1)
+                timeSVDpp_trainer.step(1)
+                user_trainer[u].step(1, ignore_stale_grad=True)
+                item_trainer[i].step(1, ignore_stale_grad=True)
                 total_loss += loss
                 trained_cnt += 1
                 if trained_cnt % 5000 == 0:
