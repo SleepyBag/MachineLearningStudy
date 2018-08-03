@@ -204,7 +204,7 @@ class Trainer():
             total_loss = 0
             trained_cnt = 0
             cur_loss = 0
-            if is_random is False:
+            if is_random is True:
                 random.shuffle(self.random_data)
             # 针对每个评分项进行迭代
             pbar = tqdm(self.random_data)

@@ -90,7 +90,7 @@ class TimeSVDpp(gluon.nn.HybridBlock):
         b_item = b_item_long_i + b_item_short_i_bint                   # 商品偏移
         b_user = alpha_bias_u * dev.reshape((1, 1)) + \
             b_user_short_u_t + b_user_long_u                           # 用户偏移
-        p = p_long_u + p_short_u + alpha_preference_u * \
+        p_u = p_long_u + p_short_u + alpha_preference_u * \
             F.broadcast_to(dev.reshape((1, 1)), (1, self.factor_cnt))  # 用户偏好
         p_mlp = p_long_u_mlp + p_short_u_mlp + alpha_preference_u_mlp * \
             F.broadcast_to(dev.reshape((1, 1)), (1, self.factor_cnt))  # 用户偏好
@@ -111,19 +111,25 @@ class TimeSVDpp(gluon.nn.HybridBlock):
         mlp = self.mlp1_dropout(mlp)
         mlp = F.dot(mlp, mlp1_W3) + mlp1_b3
 
+        # 点乘输出
+        dot = F.dot(q_i, F.transpose(p_u) + F.transpose(sum_y))
+
         # 预测评分
-        r_hat = self.mu + b_item + b_user + mlp +\
-            F.dot(q_i, F.transpose(p) + F.transpose(sum_y))
+        r_hat = self.mu + b_item + b_user + mlp + dot
+
         # 计算正则项
-        reg = b_item_long_i ** 2 + b_item_short_i_bint ** 2 + b_user_long_u ** 2 + \
-            alpha_bias_u ** 2 + b_user_short_u_t ** 2 + F.sum(p_long_u ** 2).reshape((1, 1)) + \
-            F.sum(alpha_preference_u ** 2).reshape((1, 1)) + F.sum(p_short_u ** 2).reshape((1, 1)) + \
-            F.sum(p_long_u_mlp ** 2).reshape((1, 1)) + \
+        mlp_reg = F.sum(p_long_u_mlp ** 2).reshape((1, 1)) + \
             F.sum(alpha_preference_u_mlp ** 2).reshape((1, 1)) + F.sum(p_short_u_mlp ** 2).reshape((1, 1)) + \
-            F.sum(q_i ** 2).reshape((1, 1)) + F.sum(F.dot(R_u, y ** 2)).reshape((1, 1)) + \
             F.sum(q_i_mlp ** 2).reshape((1, 1)) + F.sum(F.dot(R_u, y_mlp ** 2)).reshape((1, 1)) + \
             F.sum(mlp1_W1 ** 2).reshape((1, 1)) + F.sum(mlp1_b1 ** 2).reshape((1, 1)) + \
-            F.sum(mlp1_W2 ** 2).reshape((1, 1)) + F.sum(mlp1_b2 ** 2).reshape((1, 1))
+            F.sum(mlp1_W2 ** 2).reshape((1, 1)) + F.sum(mlp1_b2 ** 2).reshape((1, 1)) + \
+            F.sum(mlp1_W3 ** 2).reshape((1, 1)) + F.sum(mlp1_b3 ** 2).reshape((1, 1))
+        dot_reg = F.sum(p_long_u ** 2).reshape((1, 1)) + \
+            F.sum(alpha_preference_u ** 2).reshape((1, 1)) + F.sum(p_short_u ** 2).reshape((1, 1)) + \
+            F.sum(q_i ** 2).reshape((1, 1)) + F.sum(F.dot(R_u, y ** 2)).reshape((1, 1))
+        bias_reg = b_item_long_i ** 2 + b_item_short_i_bint ** 2 + b_user_long_u ** 2 + \
+            alpha_bias_u ** 2 + b_user_short_u_t ** 2
+        reg = mlp_reg + dot_reg + bias_reg
 
         return r_hat, reg
 
@@ -205,7 +211,7 @@ class Trainer():
     def get_vectors(self, user, item, time):
         u = self.user_vec[user]
         R_u = self.R[user]
-        i = self.item_vec[user]
+        i = self.item_vec[item]
         t = self.time_vec[time]
         bint = self.bin_vec[self.get_bin_index(time, self.bin_cnt, self.day_cnt)]
         dev = self.get_dev(user, time, self.beta, self.user_meanday)
@@ -235,17 +241,17 @@ class Trainer():
     def train(self, epoch_cnt, learning_method, learning_params, verbose,
               is_random=True):
         # 定义训练器
-        trainer_learning_params = learning_params
-        trainer_learning_params['wd'] = 0
+        wd = learning_params['wd']
+        learning_params['wd'] = 0
         trainer = gluon.Trainer(self.timeSVDpp.collect_params(),
-                                learning_method, trainer_learning_params)
+                                learning_method, learning_params)
 
         # 训练过程
         for epoch in range(epoch_cnt):
             total_loss = 0
             trained_cnt = 0
             cur_loss = 0
-            if is_random is False:
+            if is_random is True:
                 random.shuffle(self.random_data)
             # 针对每个评分项进行迭代
             pbar = tqdm(self.random_data)
@@ -254,14 +260,14 @@ class Trainer():
                                                            rating[3])
                 with mxnet.autograd.record():
                     r_hat, reg = self.timeSVDpp(u, i, t, R_u, dev, bint)
-                    loss = (r_hat - rating[2]) ** 2 + learning_params['wd'] * reg
+                    loss = (r_hat - rating[2]) ** 2 + wd * reg
                 loss.backward()
                 trainer.step(1)
                 total_loss += loss
                 trained_cnt += 1
-                if trained_cnt % 5000 == 0:
+                if trained_cnt % 500 == 0:
                     cur_loss = (total_loss / trained_cnt)[0].asscalar()
-                pbar.set_description('Loss=%6f' % cur_loss)
+                    pbar.set_description('Loss=%6f' % cur_loss)
             # 输出结果
             print('Epoch', epoch, 'finished, Loss =',
                   total_loss[0].asscalar() / self.rating_cnt)
