@@ -216,13 +216,14 @@ class Trainer():
         return u, R_u, i, t, bint, dev
 
     # 测试模型
-    def test(self):
+    def test(self, progress):
         test_total_loss = 0
         tested_cnt = 0
         data = self.batchify(self.test_data, self.batch_size, is_random=False)
-        pbar = tqdm(data)
+        if progress is True:
+            data = tqdm(data)
         # 遍历测试集
-        for rating in pbar:
+        for rating in data:
             tested_cnt += self.batch_size
             # R_u = self.test_R[user]
             u, R_u, i, t, bint, dev, r = rating
@@ -267,7 +268,7 @@ class Trainer():
 
     # 训练模型
     def train(self, epoch_cnt, learning_method, learning_params, verbose,
-              is_random=True):
+              is_random=True, progress):
         # 定义训练器
         wd = learning_params['wd']
         learning_params['wd'] = 0
@@ -281,8 +282,9 @@ class Trainer():
             trained_cnt = 0
             data = self.batchify(self.random_data, self.batch_size, is_random)
             # 针对每个评分项进行迭代
-            pbar = tqdm(data)
-            for rating in pbar:
+            if progress is True:
+                data = tqdm(data)
+            for rating in data:
                 trained_cnt += self.batch_size
                 u, R_u, i, t, bint, dev, r = rating
                 with mxnet.autograd.record():
@@ -300,4 +302,4 @@ class Trainer():
             #       total_loss[0].asscalar() / self.rating_cnt)
             # 测试效果
             if epoch >= verbose:
-                self.test()
+                self.test(progress)

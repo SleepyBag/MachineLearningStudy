@@ -118,7 +118,9 @@ def train(trainer):
                 learning_params['wd'] = input_param('wd', .01)
             epoch_cnt = input_param('epoch_cnt', 20)
             verbose = input_param('verbose', 15)
-            trainer.train(epoch_cnt, learning_method, learning_params, verbose)
+            progress = bool(input_param('progressbar?', 0))
+            trainer.train(epoch_cnt, learning_method, learning_params, verbose,
+                          progress=progress)
 
             is_continue = input('continue?(y/n)')
 

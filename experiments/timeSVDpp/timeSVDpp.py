@@ -152,7 +152,7 @@ class Trainer():
         return u, R_u, i, t, bint, dev
 
     # 测试模型
-    def test(self):
+    def test(self, progress):
         test_total_loss = 0
         tested_cnt = 0
         # 遍历测试集
@@ -169,7 +169,8 @@ class Trainer():
               math.sqrt(test_total_loss[0].asscalar() / self.test_rating_cnt))
 
     # 训练模型
-    def train(self, epoch_cnt, learning_method, learning_params, is_random=True):
+    def train(self, epoch_cnt, learning_method, learning_params, is_random=True,
+            progress):
         # 定义训练器
         trainer_learning_params = learning_params
         trainer_learning_params['wd'] = 0
@@ -202,4 +203,4 @@ class Trainer():
             print('Epoch', epoch, 'finished, Loss =',
                   total_loss[0].asscalar() / self.rating_cnt)
             # 测试效果
-            self.test()
+            self.test(progress)
