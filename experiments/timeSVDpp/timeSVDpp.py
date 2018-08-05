@@ -170,7 +170,7 @@ class Trainer():
 
     # 训练模型
     def train(self, epoch_cnt, learning_method, learning_params, is_random=True,
-            progress):
+            progress=False):
         # 定义训练器
         trainer_learning_params = learning_params
         trainer_learning_params['wd'] = 0

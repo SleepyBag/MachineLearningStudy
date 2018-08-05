@@ -230,7 +230,8 @@ class Trainer():
             loss = (r_hat - r) ** 2
             test_total_loss += nd.sum(loss)
             cur_loss = (test_total_loss / tested_cnt)[0].asscalar()
-            pbar.set_description('Loss=%.6f' % cur_loss)
+            if progress is True:
+                data.set_description('Loss=%.6f' % cur_loss)
         # 输出测试结果
         print('Test finished, Loss =',
               math.sqrt(test_total_loss[0].asscalar() / self.test_rating_cnt))
@@ -267,7 +268,7 @@ class Trainer():
 
     # 训练模型
     def train(self, epoch_cnt, learning_method, learning_params, verbose,
-              is_random=True, progress):
+              is_random=True, progress=False):
         # 定义训练器
         wd = learning_params['wd']
         learning_params['wd'] = 0
@@ -295,7 +296,8 @@ class Trainer():
                 total_loss += nd.sum(loss)
                 if trained_cnt % 500 == 0:
                     cur_loss = (total_loss / trained_cnt)[0].asscalar()
-                    pbar.set_description('Loss=%.6f' % cur_loss)
+                    if progress is True:
+                        data.set_description('Loss=%.6f' % cur_loss)
             # # 输出结果
             # print('Epoch', epoch, 'finished, Loss =',
             #       total_loss[0].asscalar() / self.rating_cnt)

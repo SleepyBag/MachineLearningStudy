@@ -1,9 +1,9 @@
 from load_movie_data import loadMovieData
 import mxnet
-import timeSVDpp
+import timeSVDpp_batch
 import v1
-import v2
-import v3
+# import v2
+import v3_batch
 import v2_batch
 import math
 
@@ -72,10 +72,10 @@ def get_trainer():
         batch_size = input_param('batch_size', 40)
         # timeSVD++
         if model == '1':
-            trainer = timeSVDpp. \
+            trainer = timeSVDpp_batch. \
                 Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
                         user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta)
+                        factor_cnt, bin_cnt, beta, batch_size)
         # neuralTimeSVD++ v1
         if model == '2':
             trainer = v1. \
@@ -84,20 +84,20 @@ def get_trainer():
                         factor_cnt, bin_cnt, beta)
         # neuralTimeSVD++ v2
         elif model == '3':
-            trainer = v2. \
+            trainer = v2_batch. \
                 Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
                         user_meanday, nItems, nUsers, nDays, average_rating,
                         factor_cnt, bin_cnt, beta)
         elif model == '4':
-            trainer = v3. \
+            trainer = v3_batch. \
                 Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
                         user_meanday, nItems, nUsers, nDays, average_rating,
                         factor_cnt, bin_cnt, beta)
-        elif model == '5':
-            trainer = v2_batch. \
-                Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-                        user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta, batch_size)
+        # elif model == '5':
+        #     trainer = v2_batch. \
+        #         Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+        #                 user_meanday, nItems, nUsers, nDays, average_rating,
+        #                 factor_cnt, bin_cnt, beta, batch_size)
     return trainer
 
 
