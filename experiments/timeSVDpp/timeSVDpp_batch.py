@@ -1,9 +1,7 @@
-import ipdb
 from mxnet import gluon
 import mxnet
 from mxnet import ndarray as nd
 import math
-import random
 from tqdm import tqdm
 from mxnet.gluon import data as gdata
 
@@ -243,7 +241,6 @@ class Trainer():
               math.sqrt(test_total_loss[0].asscalar() / self.test_rating_cnt))
 
     def batchify(self, data):
-        ipdb.set_trace()
         # 逐个获取向量化的数据
         bu, bR_u, bi, bt, bbint, bdev, br = ([], [], [], [], [], [], [],)
         for rating in data:
@@ -268,7 +265,6 @@ class Trainer():
     # 训练模型
     def train(self, epoch_cnt, learning_method, learning_params, verbose,
               is_random=True, progress=False):
-        ipdb.set_trace()
         # 定义训练器
         wd = learning_params['wd']
         learning_params['wd'] = 0
@@ -281,7 +277,7 @@ class Trainer():
             total_loss = 0
             trained_cnt = 0
             data = gdata.DataLoader(self.train_dataset, batch_size=self.batch_size,
-                                        shuffle=is_random)
+                                    shuffle=is_random)
             # 针对每个评分项进行迭代
             if progress is True:
                 data = tqdm(data)
@@ -291,7 +287,7 @@ class Trainer():
                     r_hat, reg = self.timeSVDpp(u, i, t, R_u, dev, bint)
                     loss = nd.sum((r_hat - r) ** 2 + wd * reg)
                 loss.backward()
-                trainer.step(self.batch_size)
+                trainer.step(1)
 
                 total_loss += nd.sum(loss)
                 if trained_cnt % 500 == 0:

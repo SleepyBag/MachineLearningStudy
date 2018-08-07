@@ -2,8 +2,8 @@ from mxnet import gluon
 import mxnet
 from mxnet import ndarray as nd
 import math
-import random
 from tqdm import tqdm
+from mxnet.gluon import data as gdata
 
 
 class TimeSVDpp(gluon.nn.HybridBlock):
@@ -177,14 +177,18 @@ class Trainer():
         #     for item in self.items_of_user[user]:
         #         self.test_R[user][0][item[0]] = 1
         # 将数据整理到一个序列中
-        self.random_data = []
+        self.train_data = []
         for user in items_of_user.keys():
             for item in items_of_user[user]:
-                self.random_data.append((user,) + item)
+                self.train_data.append((user,) + item)
         self.test_data = []
         for user in test_items_of_user.keys():
             for item in test_items_of_user[user]:
                 self.test_data.append((user,) + item)
+        self.train_data = self.batchify(self.train_data)
+        self.test_data = self.batchify(self.test_data)
+        self.train_dataset = gdata.ArrayDataset(*self.train_data)
+        self.test_dataset = gdata.ArrayDataset(*self.test_data)
 
         # 定义模型以及训练器
         self.timeSVDpp = TimeSVDpp(item_cnt, user_cnt, day_cnt, average_rating,
@@ -212,20 +216,19 @@ class Trainer():
         t = self.time_vec[time]
         bint = self.bin_vec[self.get_bin_index(time, self.bin_cnt, self.day_cnt)]
         dev = self.get_dev(user, time, self.beta, self.user_meanday)
-        return u, R_u, i, t, bint, dev
+        return u, R_u, i, t, bint, dev.reshape((1, 1))
 
     # 测试模型
     def test(self, progress):
         test_total_loss = 0
         tested_cnt = 0
-        data = self.batchify(self.test_data, self.batch_size, is_random=False)
+        data = gdata.DataLoader(self.test_dataset, batch_size=self.batch_size)
         if progress is True:
             data = tqdm(data)
         # 遍历测试集
-        for rating in data:
+        for u, R_u, i, t, bint, dev, r in data:
             tested_cnt += self.batch_size
             # R_u = self.test_R[user]
-            u, R_u, i, t, bint, dev, r = rating
             r_hat, reg = self.timeSVDpp(u, i, t, R_u, dev, bint)
             loss = (r_hat - r) ** 2
             test_total_loss += nd.sum(loss)
@@ -236,35 +239,27 @@ class Trainer():
         print('Test finished, Loss =',
               math.sqrt(test_total_loss[0].asscalar() / self.test_rating_cnt))
 
-    def batchify(self, data, batch_size, is_random):
-        if is_random is True:
-            random.shuffle(data)
-        batched = []
-        batched_cnt = 0
+    def batchify(self, data):
+        # 逐个获取向量化的数据
+        bu, bR_u, bi, bt, bbint, bdev, br = ([], [], [], [], [], [], [],)
         for rating in data:
-            if batched_cnt == 0:
-                bu, bR_u, bi, bt, bbint, bdev, br = (tuple(),) * 7
             u, R_u, i, t, bint, dev = self.get_vectors(rating[0], rating[1],
                                                        rating[3])
-            bu = bu + (u,)
-            bR_u = bR_u + (R_u,)
-            bi = bi + (i,)
-            bt = bt + (t,)
-            bbint = bbint + (bint,)
-            bdev = bdev + (dev,)
-            br = br + (nd.array([[rating[2]]]),)
-            batched_cnt += 1
-            if batched_cnt % batch_size == 0:
-                bu = nd.concat(*bu, dim=0)
-                bR_u = nd.concat(*bR_u, dim=0)
-                bi = nd.concat(*bi, dim=0)
-                bt = nd.concat(*bt, dim=0)
-                bbint = nd.concat(*bbint, dim=0)
-                bdev = nd.concat(*bdev, dim=0).reshape((batch_size, 1))
-                br = nd.concat(*br, dim=0).reshape((batch_size, 1))
-                batched.append((bu, bR_u, bi, bt, bbint, bdev, br))
-                batched_cnt = 0
-        return batched
+            bu.append(u)
+            bR_u.append(R_u)
+            bi.append(i)
+            bt.append(t)
+            bbint.append(bint)
+            bdev.append(dev)
+            br.append(nd.array([[rating[2]]]))
+        bu = nd.concat(*bu, dim=0)
+        bR_u = nd.concat(*bR_u, dim=0)
+        bi = nd.concat(*bi, dim=0)
+        bt = nd.concat(*bt, dim=0)
+        bbint = nd.concat(*bbint, dim=0)
+        bdev = nd.concat(*bdev, dim=0)
+        br = nd.concat(*br, dim=0)
+        return bu, bR_u, bi, bt, bbint, bdev, br
 
     # 训练模型
     def train(self, epoch_cnt, learning_method, learning_params, verbose,
@@ -280,18 +275,18 @@ class Trainer():
         for epoch in range(epoch_cnt):
             total_loss = 0
             trained_cnt = 0
-            data = self.batchify(self.random_data, self.batch_size, is_random)
+            data = gdata.DataLoader(self.train_dataset, batch_size=self.batch_size,
+                                    shuffle=is_random)
             # 针对每个评分项进行迭代
             if progress is True:
                 data = tqdm(data)
-            for rating in data:
+            for u, R_u, i, t, bint, dev, r in data:
                 trained_cnt += self.batch_size
-                u, R_u, i, t, bint, dev, r = rating
                 with mxnet.autograd.record():
                     r_hat, reg = self.timeSVDpp(u, i, t, R_u, dev, bint)
                     loss = nd.sum((r_hat - r) ** 2 + wd * reg)
                 loss.backward()
-                trainer.step(self.batch_size)
+                trainer.step(1)
 
                 total_loss += nd.sum(loss)
                 if trained_cnt % 500 == 0:
