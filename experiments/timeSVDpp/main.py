@@ -5,6 +5,7 @@ import v1
 # import v2
 import v3_batch
 import v2_batch
+import trainer
 import math
 
 
@@ -62,46 +63,41 @@ else:
     context = mxnet.gpu(int(context))
 
 
-def get_trainer():
-    with mxnet.Context(context):
-        model = input('Which model do you want to train?\n' +
-                      '1. timeSVD++\t2. v1\t3. v2\t 4. v3 5. batchified v2\n')
-        bin_cnt = input_param('bin_cnt', 30)
-        beta = input_param('beta', .4)
-        factor_cnt = input_param('factor_cnt', 10)
-        batch_size = input_param('batch_size', 40)
-        # timeSVD++
-        if model == '1':
-            trainer = timeSVDpp_batch. \
-                Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-                        user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta, batch_size)
-        # neuralTimeSVD++ v1
-        if model == '2':
-            trainer = v1. \
-                Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-                        user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta)
-        # neuralTimeSVD++ v2
-        elif model == '3':
-            trainer = v2_batch. \
-                Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-                        user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta)
-        elif model == '4':
-            trainer = v3_batch. \
-                Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-                        user_meanday, nItems, nUsers, nDays, average_rating,
-                        factor_cnt, bin_cnt, beta)
-        # elif model == '5':
-        #     trainer = v2_batch. \
-        #         Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-        #                 user_meanday, nItems, nUsers, nDays, average_rating,
-        #                 factor_cnt, bin_cnt, beta, batch_size)
-    return trainer
+# get trainer
+with mxnet.Context(context):
+    model_num = input('Which model do you want to train?\n' +
+                      '1. timeSVD++\t2. v1\t3. v2\t 4. v3\n')
+    bin_cnt = input_param('bin_cnt', 30)
+    beta = input_param('beta', .4)
+    factor_cnt = input_param('factor_cnt', 10)
+    batch_size = input_param('batch_size', 40)
+    # timeSVD++
+    if model_num == '1':
+        model = timeSVDpp_batch.TimeSVDpp(nItems, nUsers, nDays, average_rating,
+                                          factor_cnt, bin_cnt, beta, batch_size)
+    # # neuralTimeSVD++ v1
+    # if model_num == '2':
+    #     trainer = v1. \
+    #         Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+    #                 user_meanday, nItems, nUsers, nDays, average_rating,
+    #                 factor_cnt, bin_cnt, beta, batch_size)
+    # neuralTimeSVD++ v2
+    elif model_num == '3':
+        model = v2_batch.TimeSVDpp(nItems, nUsers, nDays, average_rating,
+                                   factor_cnt, bin_cnt, beta, batch_size)
+    elif model_num == '4':
+        model = v3_batch.V3(nItems, nUsers, nDays, average_rating,
+                            factor_cnt, bin_cnt, beta, batch_size)
+    model.initialize()
+    # model.hybridize()
+
+model_trainer = trainer. \
+    Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+            user_meanday, nItems, nUsers, nDays, average_rating,
+            factor_cnt, bin_cnt, beta, batch_size)
 
 
-def train(trainer):
+def train(model, trainer):
     with mxnet.Context(context):
         is_continue = 'y'
         while is_continue == 'y':
@@ -117,13 +113,12 @@ def train(trainer):
                 learning_params['learning_rate'] = input_param('learning_rate', .001)
                 learning_params['wd'] = input_param('wd', .01)
             epoch_cnt = input_param('epoch_cnt', 20)
-            verbose = input_param('verbose', 15)
+            verbose = input_param('verbose', 0)
             progress = bool(input_param('progressbar?', 0))
             trainer.train(epoch_cnt, learning_method, learning_params, verbose,
-                          progress=progress)
+                          model, progress=progress)
 
             is_continue = input('continue?(y/n)')
 
 
-trainer = get_trainer()
-train(trainer)
+train(model, model_trainer)
