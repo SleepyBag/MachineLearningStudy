@@ -2,7 +2,6 @@ from load_movie_data import loadMovieData
 import mxnet
 import timeSVDpp_batch
 import v1
-# import v2
 import v3_batch
 import v2_batch
 import trainer
@@ -91,10 +90,10 @@ with mxnet.Context(context):
     model.initialize()
     # model.hybridize()
 
-model_trainer = trainer. \
-    Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
-            user_meanday, nItems, nUsers, nDays, average_rating,
-            factor_cnt, bin_cnt, beta, batch_size)
+    model_trainer = trainer. \
+        Trainer(userItems, rating_cnt, test_userItems, test_rating_cnt,
+                user_meanday, nItems, nUsers, nDays, average_rating,
+                factor_cnt, bin_cnt, beta, batch_size)
 
 
 def train(model, trainer):
