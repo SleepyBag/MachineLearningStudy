@@ -147,12 +147,12 @@ class Trainer():
         # 定义训练器
         wd = learning_params['wd']
         learning_params['wd'] = 0
-        # trainer = gluon.Trainer(model.collect_params(), learning_method,
-        #                         learning_params)
-        dense_trainer = gluon.Trainer(model.collect_params(select='.*_(mlp[0-9]|y)'),
-                                      learning_method, learning_params)
-        svd_trainer = gluon.Trainer(model.collect_params(select='.*_(q|p|alpha|b)(_|$)'),
-                                    learning_method, learning_params)
+        trainer = gluon.Trainer(model.collect_params(), learning_method,
+                                learning_params)
+        # dense_trainer = gluon.Trainer(model.collect_params(select='.*_(mlp[0-9]|y)'),
+        #                               learning_method, learning_params)
+        # svd_trainer = gluon.Trainer(model.collect_params(select='.*_(q|p|alpha|b)(_|$)'),
+        #                             learning_method, learning_params)
         # alpha = nd.array([alpha]).reshape((1, 1))
 
         # 训练过程
@@ -172,9 +172,9 @@ class Trainer():
                     loss = (r_hat - r) ** 2 + wd * reg
                 loss.backward()
                 # 调整参数
-                dense_trainer.step(self.batch_size)
-                svd_trainer.step(1)
-                # trainer.step(self.batch_size)
+                # dense_trainer.step(self.batch_size)
+                # svd_trainer.step(1)
+                trainer.step(self.batch_size)
 
                 total_loss += nd.sum(loss).asscalar()
                 cur_loss = total_loss / trained_cnt

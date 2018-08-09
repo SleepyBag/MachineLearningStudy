@@ -96,6 +96,17 @@ with mxnet.Context(context):
                 factor_cnt, bin_cnt, beta, batch_size)
 
 
+# 预训练
+def pretrain(model, trainer):
+    model.alpha = 0
+    print('alpha=0, pretraining...')
+    train(model, trainer)
+    # model.alpha = 1
+    # print('alpha=1, pretraining...')
+    model.alpha = .5
+    train(model, trainer)
+
+
 def train(model, trainer):
     with mxnet.Context(context):
         is_continue = 'y'
@@ -120,4 +131,6 @@ def train(model, trainer):
             is_continue = input('continue?(y/n)')
 
 
+if isinstance(model, v3_batch.V3):
+    pretrain(model, model_trainer)
 train(model, model_trainer)

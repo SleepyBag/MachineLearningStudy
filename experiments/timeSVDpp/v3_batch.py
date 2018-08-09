@@ -16,6 +16,8 @@ class V3(gluon.nn.HybridBlock):
         self.beta = beta
         self.bin_cnt = bin_cnt
         self.batch_size = batch_size
+        # MLP模块的权重
+        self.alpha = .5
 
         with self.name_scope():
             # 定义MLP块
@@ -107,13 +109,14 @@ class V3(gluon.nn.HybridBlock):
 
         # 点乘输出
         dot = F.sum(q_i * (p_u + sum_y), axis=1).reshape((self.batch_size, 1))
-        # # MLP与点乘分别所占的比例
-        # mlp_rate = (F.ones((1, 1)) - alpha)
-        # dot_rate = alpha
+
+        # MLP与点乘分别所占的比例
+        mlp_rate = self.alpha
+        dot_rate = 1 - self.alpha
 
         # 预测评分
-        # r_hat = self.mu + b_item + b_user + mlp_rate * mlp + dot_rate * dot
-        r_hat = self.mu + b_item + b_user + mlp + dot
+        r_hat = self.mu + b_item + b_user + mlp_rate * mlp + dot_rate * dot
+        # r_hat = self.mu + b_item + b_user + mlp + dot
 
         # 计算正则项
         # MLP部分
@@ -135,7 +138,10 @@ class V3(gluon.nn.HybridBlock):
         bias_reg = b_item_long_i ** 2 + b_item_short_i_bint ** 2 + \
             b_user_long_u ** 2 + alpha_bias_u ** 2 + b_user_short_u_t ** 2
         # 汇总
-        reg = bias_reg + mlp_reg + dot_reg
+        if mlp_rate == .5:
+            reg = bias_reg + mlp_reg + dot_reg
+        else:
+            reg = bias_reg + mlp_rate * mlp_reg + dot_rate * dot_reg
         # reg = reg * self.batch_size
 
         return r_hat, reg
